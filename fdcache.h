@@ -5,8 +5,7 @@
 
 typedef unsigned long long int kvsns_ino_t;
 
-// users don't know about fd_cache_entry
-//typedef fd_cache_entry_t* fd_cache_t;
+/* users don't know about fd_cache_entry */
 typedef void* fd_cache_t;
 
 /*
