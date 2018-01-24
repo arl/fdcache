@@ -5,6 +5,7 @@
 #include <jemalloc/jemalloc.h>
 
 #include "../fdcache.h"
+#include "../fdcache_internal.h"
 
 /* test helpers */
 

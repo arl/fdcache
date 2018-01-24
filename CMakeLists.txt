@@ -2,10 +2,11 @@ cmake_minimum_required(VERSION 2.8)
 
 project(fdcache C)
 add_executable(${PROJECT_NAME}
-    "fdcache.c"
+    "fdcache_internal.h"
     "fdcache.h"
-    "bitmap.c"
+    "fdcache.c"
     "bitmap.h"
+    "bitmap.c"
     "main.c"
 )
 
