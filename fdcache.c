@@ -68,7 +68,7 @@ void fdc_deinit()
 	memset(&_fd_cache, 0, sizeof(fd_cache_entry_t));
 }
 
-fd_cache_t fdc_get_or_create(kvsns_ino_t ino, size_t block_size, size_t blocks_per_cluster)
+int fdc_get_or_create(kvsns_ino_t ino, size_t block_size, size_t blocks_per_cluster, fd_cache_t *fd)
 {
 	/* look for existing cache entry */
 	int i = 0;
