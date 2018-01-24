@@ -166,7 +166,30 @@ void test_fdcache_get_or_create_return_codes()
 
 void test_fdcache_ram_cluster_write_return_codes()
 {
+	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
+	ssize_t full_cluster;
+	const char refbuf[] = "\x00\x01\x02\x03\x04\x05\x06\x07";
+	fd_cache_t ice1;
 
+	fdc_init(ram_fs_limit);
+
+	CU_ASSERT_RC_SUCCESS(fdc_get_or_create, 0, 2, 2, &ice1);
+
+	/* write 1 byte at offset 0 */
+	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf, 1, 0, &full_cluster));
+	/* write 1 byte at offset 15, making the entry 16 bytes long */
+	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf, 1, 15, &full_cluster));
+
+	/* invalid offsets */
+	CU_ASSERT_EQUAL(-EINVAL, _fdc_ram_cluster_write(ice1, 0, refbuf, 1, -1));
+	CU_ASSERT_EQUAL(-EINVAL, _fdc_ram_cluster_write(ice1, 0, refbuf, 0, 5));
+
+	/* trying to write past cluster end */
+	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 1, 4));
+	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 2, 3));
+	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 3, 2));
+
+	fdc_deinit();
 }
 
 void test_fdcache_read_return_codes()
