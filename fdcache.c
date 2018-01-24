@@ -13,7 +13,7 @@
 // TODO: ADD LOCKING when touching at the cache entries!!!!
 
 typedef struct fd_cache_entry_ {
-	kvsns_ino_t ino;
+	cache_ino_t ino;
 	size_t total_size;
 	size_t block_size;
 	size_t blocks_per_cluster;
@@ -31,9 +31,11 @@ typedef struct fd_cache_entry_ {
 
 } fd_cache_entry_t;
 
-/* for now this is quick and very dirty cache */
+/* for now this is quick and very dirty cache
+ * TODO: should be dynamic
+ */
 #define MAX_CACHE_ENTRIES 20
-#define FREE_INODE ((kvsns_ino_t)-1)
+#define FREE_INODE ((cache_ino_t)-1)
 
 #define IN_RAM_CACHE ((size_t)-1)
 
@@ -68,7 +70,11 @@ void fdc_deinit()
 	memset(&_fd_cache, 0, sizeof(fd_cache_entry_t));
 }
 
-int fdc_get_or_create(kvsns_ino_t ino, size_t block_size, size_t blocks_per_cluster, fd_cache_t *fd)
+int fdc_get_or_create(
+		cache_ino_t ino,
+		size_t block_size,
+		size_t blocks_per_cluster,
+		fd_cache_t *fd)
 {
 	/* check arguments */
 	if (!block_size || !blocks_per_cluster || !fd) {
@@ -80,10 +86,12 @@ int fdc_get_or_create(kvsns_ino_t ino, size_t block_size, size_t blocks_per_clus
 	int i_free = -1;
 	for (; i < MAX_CACHE_ENTRIES; i++)
 	{
-		if (_fd_cache[i].ino == ino)
-			return (fd_cache_t)&_fd_cache[i];
-		else if (i_free == -1 && _fd_cache[i].ino == FREE_INODE)
+		if (_fd_cache[i].ino == ino) {
+			*fd = (fd_cache_t)&_fd_cache[i];
+			return 0;
+		} else if (i_free == -1 && _fd_cache[i].ino == FREE_INODE) {
 			i_free = i;
+		}
 	}
 
 	/* create cache entry at the first free entry */
@@ -103,14 +111,21 @@ int fdc_get_or_create(kvsns_ino_t ino, size_t block_size, size_t blocks_per_clus
 	return 0;
 }
 
-/*
- * Write a buffer to a specific cluster
- * cidx cluster index
- * buf buffer to write
- * count number of bytes to write from buffer to the cluster
- * coff offset indicating where to start writing in the cluster buffer
- *
- * undefined behaviour when trying to write past the cluster boundary
+/**
+ * @brief _fdc_ram_cluster_write writes up to count bytes from the buffer
+ *                         starting at buf to the cluster represented by cidx,
+ *                         at offset coff.
+ * @param ent cache entry
+ * @param cidx index of the cache entry cluster. Allocate the whole cluster if
+ *                         it's not allocated yet
+ * @param buf buffer to write
+ * @param count number of bytes to write
+ * @param coff offset from the cluster start
+ * @return the number of bytes written or a negative errno value to indicate an
+ *                         error. Possible error codes:
+ *	* -ENOMEM cluster can't be allocated
+ *      * -EINVAL invalid offset (negative or greater than cluster size)
+ *	* -EOVERFLOW trying to write past the cluster end
  */
 ssize_t _fdc_ram_cluster_write(fd_cache_entry_t *ent,
 			       size_t cidx,
@@ -143,7 +158,11 @@ ssize_t _fdc_ram_cluster_write(fd_cache_entry_t *ent,
 	return count;
 }
 
-ssize_t fdc_write(fd_cache_t fd, const void *buf, size_t count, off_t offset, ssize_t *full_cluster)
+ssize_t fdc_write(fd_cache_t fd,
+		  const void *buf,
+		  size_t count,
+		  off_t offset,
+		  ssize_t *full_cluster)
 {
 	fd_cache_entry_t *ent = (fd_cache_entry_t*)fd;
 
@@ -175,7 +194,8 @@ ssize_t fdc_write(fd_cache_t fd, const void *buf, size_t count, off_t offset, ss
 			/* compute count for current cluster */
 			ccount = cluster_size - coff > nremain ? nremain : cluster_size - coff;
 
-			printf("_fdc_ram_cluster_write: cidx=%lu buf=buf+0x%lu ccount=%lu coff=%lu\n", cidx, last_offset - nremain, ccount, coff);
+			printf("_fdc_ram_cluster_write: cidx=%lu buf=buf+0x%lu ccount=%lu coff=%lu\n",
+			       cidx, last_offset - nremain, ccount, coff);
 
 			rc = _fdc_ram_cluster_write(ent, cidx, buf + (count - nremain), ccount, coff);
 			if (rc < 0)
@@ -199,18 +219,26 @@ ssize_t fdc_write(fd_cache_t fd, const void *buf, size_t count, off_t offset, ss
 	return nwritten;
 }
 
-/*
- * Read a buffer from a specific cluster
- * cidx cluster index
- * buf buffer to read into
- * count number of bytes to read from the cluster into the buffer
- * coff offset indicating where to start reading from the cluster
- *
- * undefined behaviour when trying to read past the cluster boundary
- *
- * return negative value in case of error, count in case of success
+/**
+ * @brief _fdc_ram_cluster_read reads up to count bytes from the cluster
+ *                           represented by cid, at offset coff, into the buffer
+ *                           starting at buf.
+ * @param ent cache entry
+ * @param cidx index of the cache entry cluster
+ * @param buf buffer to read
+ * @param count number of bytes to read
+ * @param coff offset from the cluster start
+ * @return the number of bytes read or a negative errno value to indicate an
+ *         error. Possible error codes:
+ *	* -EFAULT cluster not allocated/not found
+ *      * -EINVAL invalid offset (negative or greater than cluster size)
+ *	* -EOVERFLOW trying to read past the cluster end
  */
-ssize_t _fdc_ram_cluster_read(fd_cache_entry_t *ent, size_t cidx, void *buf, size_t count, off_t coff)
+ssize_t _fdc_ram_cluster_read(fd_cache_entry_t *ent,
+		              size_t cidx,
+			      void *buf,
+			      size_t count,
+			      off_t coff)
 {
 	const size_t cluster_size = ent->block_size * ent->blocks_per_cluster;
 	if (coff < 0 || coff > cluster_size)
@@ -227,12 +255,16 @@ ssize_t _fdc_ram_cluster_read(fd_cache_entry_t *ent, size_t cidx, void *buf, siz
 	return count;
 }
 
-ssize_t fdc_read(fd_cache_t fd, void *buf, size_t count, off_t offset)
+ssize_t fdc_read(fd_cache_t fd,
+		 void *buf,
+		 size_t count,
+		 off_t offset)
 {
 	fd_cache_entry_t *ent = (fd_cache_entry_t*)fd;
 
 	const size_t cluster_size = ent->block_size * ent->blocks_per_cluster;
-	const size_t last_offset = offset + count > ent->total_size ? ent->total_size : offset + count;
+	const size_t last_offset = offset + count > ent->total_size ?
+				   ent->total_size : offset + count;
 	size_t nread = 0;
 	ssize_t rc;
 
@@ -254,7 +286,8 @@ ssize_t fdc_read(fd_cache_t fd, void *buf, size_t count, off_t offset)
 				/* compute count for current cluster */
 				ccount = cluster_size - coff > nremain ? nremain : cluster_size - coff;
 
-				printf("_fdc_ram_cluster_read: cidx=%lu buf=buf+0x%lu ccount=%lu coff=%lu\n", cidx, last_offset - nremain, ccount, coff);
+				printf("_fdc_ram_cluster_read: cidx=%lu buf=buf+0x%lu ccount=%lu coff=%lu\n",
+				       cidx, last_offset - nremain, ccount, coff);
 
 				rc = _fdc_ram_cluster_read(ent, cidx, buf + (count - nremain), ccount, coff);
 				if (rc < 0)
