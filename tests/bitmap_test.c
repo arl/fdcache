@@ -41,7 +41,6 @@ void test_bitmap_creation_deletion()
 void test_bitmap_get_set()
 {
 	bitmap_hdl bm;
-	size_t nbits;
 	size_t tidx, i;
 
 	typedef struct test_table_ { size_t nbits; } test_table;
@@ -73,8 +72,7 @@ void test_bitmap_get_set()
 void test_bitmap_zero_fill()
 {
 	bitmap_hdl bm;
-	size_t nbits;
-	size_t tidx, i;
+	size_t tidx;
 
 	typedef struct test_table_ { size_t nbits; } test_table;
 
@@ -118,7 +116,6 @@ void test_bitmap_zero_fill()
 void test_bitmap_resize()
 {
 	bitmap_hdl bm, tmp;
-	size_t nbits;
 	size_t tidx, i;
 
 	typedef struct test_table_ { size_t oldnbits, newnbits; } test_table;
@@ -157,7 +154,6 @@ void test_bitmap_resize()
 void test_bitmap_copy()
 {
 	bitmap_hdl srcbm, dstbm;
-	size_t nbits;
 	size_t tidx, i;
 
 	typedef struct test_table_ {

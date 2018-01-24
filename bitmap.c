@@ -69,7 +69,6 @@ void bitmap_fill(bitmap_hdl hdl)
 void bitmap_set(bitmap_hdl hdl, size_t pos)
 {
 	bitmap_t *bm = (bitmap_t*) hdl;
-	unsigned long mask = BIT_MASK(pos);
 	unsigned long *p = ((unsigned long *)bm->bits) + BIT_WORD(pos);
 	*p |= BIT_MASK(pos);
 }
@@ -77,7 +76,6 @@ void bitmap_set(bitmap_hdl hdl, size_t pos)
 void bitmap_reset(bitmap_hdl hdl, size_t pos)
 {
 	bitmap_t *bm = (bitmap_t*) hdl;
-	unsigned long mask = BIT_MASK(pos);
 	unsigned long *p = ((unsigned long *)bm->bits) + BIT_WORD(pos);
 	*p &= ~(BIT_MASK(pos));
 }
@@ -85,7 +83,6 @@ void bitmap_reset(bitmap_hdl hdl, size_t pos)
 bool bitmap_get(bitmap_hdl hdl, size_t pos)
 {
 	bitmap_t *bm = (bitmap_t*) hdl;
-	unsigned long mask = BIT_MASK(pos);
 	unsigned long *p = ((unsigned long *)bm->bits) + BIT_WORD(pos);
 	return (*p & BIT_MASK(pos)) != 0;
 }

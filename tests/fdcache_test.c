@@ -140,9 +140,8 @@ void test_fdcache_read_write_ram()
 
 void test_fdcache_get_or_create_return_codes()
 {
-	const size_t max_cache_entries = 20; /* defined in fd_cache.c*/
-	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
 	const size_t max_cache_entries = 20;
+	size_t ram_fs_limit = 1024 << 20;
 	size_t i;
 	fd_cache_t ice1;
 
@@ -172,7 +171,6 @@ void test_fdcache_ram_cluster_write_return_codes()
 
 void test_fdcache_read_return_codes()
 {
-	const size_t max_cache_entries = 20; /* defined in fd_cache.c*/
 	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
 	ssize_t full_cluster;
 	char buf[16];

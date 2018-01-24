@@ -2,14 +2,15 @@ cmake_minimum_required(VERSION 2.8)
 
 project(fdcache C)
 add_executable(${PROJECT_NAME}
-	"fdcache.c"
-	"fdcache.h"
-	"bitmap.c"
-	"bitmap.h"
-        "main.c"
+    "fdcache.c"
+    "fdcache.h"
+    "bitmap.c"
+    "bitmap.h"
+    "main.c"
 )
 
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
 
 find_package(GLib REQUIRED)
