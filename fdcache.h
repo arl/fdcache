@@ -49,6 +49,14 @@ int fdc_get_or_create(cache_ino_t ino,
 		      fd_cache_t *fd);
 
 /**
+ * @brief fdc_entry_size get the maximum size of a client inode.
+ * @param ino client inode number
+ * @param nbytes on success, set to the maximum size, that is, the maximum
+ *                        offset that is, or has been set, for this entry
+ * @return 0 on success, -EFAULT if cache entry was not found
+ */
+int fdc_entry_size(cache_ino_t ino, size_t *nbytes);
+
  * @brief fdc_write writes up to count bytes from the buffer starting at
  *                         buf to the cache entry fd, at offset offset. Required
  *                         number of clusters will be allocated.

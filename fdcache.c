@@ -91,6 +91,18 @@ int fdc_get_or_create(
 	*fd = (fd_cache_t) ent;
 	return 0;
 }
+
+int fdc_entry_size(cache_ino_t ino, size_t *nbytes)
+{
+	/* look for existing cache entry */
+	fd_cache_entry_t * ent;
+	int free_idx = -1;
+	ent = __fdc_lookup(ino, &free_idx);
+	if (!ent)
+		return -EFAULT;
+	*nbytes = ent->total_size;
+	return 0;
+}
 	return 0;
 }
 
