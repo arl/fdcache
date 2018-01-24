@@ -1,4 +1,4 @@
-#include <stdlib.h>
+﻿#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <CUnit/Basic.h>
@@ -18,7 +18,7 @@ char * __sprint_buffer(char * dst, const char *buf, size_t len)
 
 #define __PRINT_BUF_MAXLEN 128
 
-#define __ASSERT_EQUAL_BUFFER(got,want,len,print_on_error,fatal) ({ \
+#define __ASSERT_EQUAL_BUFFER(got, want, len, print_on_error, fatal) ({ \
 	if (memcmp(got, want, len)) { \
 		char failmsg[__PRINT_BUF_MAXLEN * 16]; \
 		char bufdisp[__PRINT_BUF_MAXLEN * 6]; \
@@ -39,32 +39,41 @@ char * __sprint_buffer(char * dst, const char *buf, size_t len)
 	} \
 })
 
-#define CU_ASSERT_EQUAL_BUFFER(got,want,len)\
-	__ASSERT_EQUAL_BUFFER(got,want,len,(len<=__PRINT_BUF_MAXLEN),CU_FALSE)
+#define CU_ASSERT_EQUAL_BUFFER(got, want, len)\
+	__ASSERT_EQUAL_BUFFER(got, want, len, (len<=__PRINT_BUF_MAXLEN),CU_FALSE)
 
-#define CU_ASSERT_EQUAL_BUFFER_FATAL(got,want,len)\
-	__ASSERT_EQUAL_BUFFER(got,want,len,(len<=__PRINT_BUF_MAXLEN),CU_TRUE)
+#define CU_ASSERT_EQUAL_BUFFER_FATAL(got, want, len)\
+	__ASSERT_EQUAL_BUFFER(got, want, len, (len<=__PRINT_BUF_MAXLEN),CU_TRUE)
+
+#define CU_ASSERT_RC_SUCCESS(__function, ...) ({\
+	int __rc = __function(__VA_ARGS__);\
+	CU_ASSERT_EQUAL_FATAL(__rc, 0); })
+
+#define CU_ASSERT_RC_EQUAL(__rcwant, __function, ...) ({\
+	int __rc = __function(__VA_ARGS__);\
+	CU_ASSERT_EQUAL_FATAL(__rc, __rcwant); })
 
 /* fdcache test suite */
 
 void test_fdcache_creation_deletion()
 {
-	kvsns_ino_t ino1 = 1;
+	cache_ino_t ino1 = 1;
 	size_t multipart_limit = 5 << 20;	// 5 Megabytes
 	size_t ram_fs_limit = 1024 << 20;	// 1 Gigabytes
+	fd_cache_t ice1;
 
 	fdc_init(ram_fs_limit);
-	fd_cache_t ice1 = fdc_get_or_create(ino1, multipart_limit, 5);
-
+	CU_ASSERT_RC_SUCCESS(fdc_get_or_create, ino1, multipart_limit, 5, &ice1);
 	fdc_deinit();
 }
 
 void test_fdcache_read_write_ram()
 {
-	kvsns_ino_t ino1 = 1;
+	cache_ino_t ino1 = 1;
 	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
 	ssize_t full_cluster;
 	size_t tidx;
+	fd_cache_t ice1;
 
 	typedef struct test_table_ {
 		size_t block_size;		/* block size */
@@ -98,35 +107,71 @@ void test_fdcache_read_write_ram()
 
 		fdc_init(ram_fs_limit);
 
-		fd_cache_t ice1 = fdc_get_or_create(ino1, t->block_size, t->blocks_per_cluster);
+		CU_ASSERT_RC_SUCCESS(fdc_get_or_create, ino1, t->block_size, t->blocks_per_cluster, &ice1);
 
-		fdc_write(ice1, "\x00", 1, 0, &full_cluster);
-		fdc_write(ice1, "\x01\x02\x03", 3, 1, &full_cluster);
+		CU_ASSERT_EQUAL_FATAL(1, fdc_write(ice1, "\x00", 1, 0, &full_cluster));
+		CU_ASSERT_EQUAL_FATAL(3, fdc_write(ice1, "\x01\x02\x03", 3, 1, &full_cluster));
 
 		char got[4];
 
 		memset(got, 0xff, 4);
-		fdc_read(ice1, got, 4, 0);
+		CU_ASSERT_EQUAL_FATAL(4, fdc_read(ice1, got, 4, 0));
 		CU_ASSERT_EQUAL_BUFFER(got, "\x00\x01\x02\x03", 4);
 
 		memset(got, 0xff, 4);
-		fdc_read(ice1, got, 2, 1);
+		CU_ASSERT_EQUAL_FATAL(2, fdc_read(ice1, got, 2, 1));
 		CU_ASSERT_EQUAL_BUFFER(got, "\x01\x02", 2);
 
 		memset(got, 0xff, 4);
-		fdc_read(ice1, got, 3, 1);
+		CU_ASSERT_EQUAL_FATAL(3, fdc_read(ice1, got, 3, 1));
 		CU_ASSERT_EQUAL_BUFFER(got, "\x01\x02\x03", 1);
 
 		memset(got, 0xff, 4);
-		fdc_read(ice1, got, 2, 2);
+		CU_ASSERT_EQUAL_FATAL(2, fdc_read(ice1, got, 2, 2));
 		CU_ASSERT_EQUAL_BUFFER(got, "\x02\x03", 2);
 
 		memset(got, 0xff, 4);
-		fdc_read(ice1, got, 1, 3);
+		CU_ASSERT_EQUAL_FATAL(1, fdc_read(ice1, got, 1, 3));
 		CU_ASSERT_EQUAL_BUFFER(got, "\x03", 1);
 
 		fdc_deinit();
 	}
+}
+
+void test_fdcache_get_or_create_return_codes()
+{
+	const size_t max_cache_entries = 20; /* defined in fd_cache.c*/
+	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
+	size_t i;
+	fd_cache_t ice1;
+
+	fdc_init(ram_fs_limit);
+
+	/* invalid block size */
+	CU_ASSERT_RC_EQUAL(-EINVAL, fdc_get_or_create, 0, 0, 1, &ice1);
+	/* invalid cluster per blocks */
+	CU_ASSERT_RC_EQUAL(-EINVAL, fdc_get_or_create, 0, 1, 0, &ice1);
+	/* both block size and cluster per blocks invalid */
+	CU_ASSERT_RC_EQUAL(-EINVAL, fdc_get_or_create, 0, 0, 0, &ice1);
+
+	/* create the maximum number of cache entries */
+	for (i = 0; i < max_cache_entries; ++i)
+		CU_ASSERT_RC_SUCCESS(fdc_get_or_create, i, 1, 1, &ice1);
+
+	/* try to create another one, should fail */
+	CU_ASSERT_RC_EQUAL(-ENFILE, fdc_get_or_create, i, 1, 1, &ice1);
+
+	fdc_deinit();
+}
+
+void test_fdcache_ram_cluster_read_return_codes()
+{
+
+}
+
+void test_fdcache_ram_cluster_write_return_codes()
+{
+
 }
 
 int init_fdcache_test_suite(void) {
@@ -155,7 +200,10 @@ int main()
 	}
 
 	if ((NULL == CU_add_test(pSuite, "fdcache creation/deletion", test_fdcache_creation_deletion)) ||
-	    (NULL == CU_add_test(pSuite, "fdcache read/write RAM", test_fdcache_read_write_ram))) {
+	    (NULL == CU_add_test(pSuite, "fdcache read/write RAM", test_fdcache_read_write_ram)) ||
+	    (NULL == CU_add_test(pSuite, "fdcache get_or_create return codes", test_fdcache_get_or_create_return_codes)) ||
+	    (NULL == CU_add_test(pSuite, "fdcache RAM cluster read return codes", test_fdcache_ram_cluster_read_return_codes)) ||
+	    (NULL == CU_add_test(pSuite, "fdcache RAM cluster write return codes", test_fdcache_ram_cluster_write_return_codes))) {
 		CU_cleanup_registry();
 		return CU_get_error();
 	}

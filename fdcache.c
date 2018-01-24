@@ -70,6 +70,11 @@ void fdc_deinit()
 
 int fdc_get_or_create(kvsns_ino_t ino, size_t block_size, size_t blocks_per_cluster, fd_cache_t *fd)
 {
+	/* check arguments */
+	if (!block_size || !blocks_per_cluster || !fd) {
+		return -EINVAL;
+	}
+
 	/* look for existing cache entry */
 	int i = 0;
 	int i_free = -1;
@@ -83,7 +88,7 @@ int fdc_get_or_create(kvsns_ino_t ino, size_t block_size, size_t blocks_per_clus
 
 	/* create cache entry at the first free entry */
 	if (i_free == -1)
-		return NULL;
+		return -ENFILE;
 
 	/* create new cache entry, in ram and empty */
 	_fd_cache[i_free].ino = ino;
@@ -94,7 +99,8 @@ int fdc_get_or_create(kvsns_ino_t ino, size_t block_size, size_t blocks_per_clus
 	_fd_cache[i_free].u.ram.buf_map = g_tree_new (_key_cmp);
 	_fd_cache[i_free].bitmap = 0; /* bitmap will be allocated at first write */
 
-	return (fd_cache_t)&_fd_cache[i_free];
+	*fd = (fd_cache_t)&_fd_cache[i_free];
+	return 0;
 }
 
 /*
@@ -106,10 +112,17 @@ int fdc_get_or_create(kvsns_ino_t ino, size_t block_size, size_t blocks_per_clus
  *
  * undefined behaviour when trying to write past the cluster boundary
  */
-void _fdc_ram_cluster_write(fd_cache_entry_t *ent, size_t cidx, const void *buf, size_t count, off_t coff)
+ssize_t _fdc_ram_cluster_write(fd_cache_entry_t *ent,
+			       size_t cidx,
+			       const void *buf,
+			       size_t count,
+			       off_t coff)
 {
 	const size_t cluster_size = ent->block_size * ent->blocks_per_cluster;
-	assert(count + coff <= cluster_size);
+	if (coff < 0 || coff > cluster_size)
+		return -EINVAL;
+	if (count + coff > cluster_size)
+		return -EOVERFLOW;
 
 	/* retrieve the memory region corresponding to the cluster */
 	void *clusterbuf = g_tree_lookup(ent->u.ram.buf_map, (gpointer*) cidx);
@@ -120,9 +133,14 @@ void _fdc_ram_cluster_write(fd_cache_entry_t *ent, size_t cidx, const void *buf,
 
 		/* allocate the cluster */
 		clusterbuf = malloc(sizeof(cluster_size));
-		g_tree_insert(ent->u.ram.buf_map, (gpointer*) cidx, clusterbuf);
+		if (!clusterbuf) {
+			return -ENOMEM;
+		} else {
+			g_tree_insert(ent->u.ram.buf_map, (gpointer*) cidx, clusterbuf);
+		}
 	}
 	memcpy(clusterbuf + coff, buf, count);
+	return count;
 }
 
 ssize_t fdc_write(fd_cache_t fd, const void *buf, size_t count, off_t offset, ssize_t *full_cluster)
@@ -131,6 +149,8 @@ ssize_t fdc_write(fd_cache_t fd, const void *buf, size_t count, off_t offset, ss
 
 	const size_t cluster_size = ent->block_size * ent->blocks_per_cluster;
 	const size_t last_offset = offset + count;
+	ssize_t rc;
+	size_t nwritten = 0;
 
 	/* if it's the first write, we must allocate the bitmap */
 	if (!ent->bitmap) {
@@ -157,7 +177,10 @@ ssize_t fdc_write(fd_cache_t fd, const void *buf, size_t count, off_t offset, ss
 
 			printf("_fdc_ram_cluster_write: cidx=%lu buf=buf+0x%lu ccount=%lu coff=%lu\n", cidx, last_offset - nremain, ccount, coff);
 
-			_fdc_ram_cluster_write(ent, cidx, buf + (count - nremain), ccount, coff);
+			rc = _fdc_ram_cluster_write(ent, cidx, buf + (count - nremain), ccount, coff);
+			if (rc < 0)
+				return rc;
+			nwritten += rc;
 
 			/* prepare for writing to next cluster */
 			coff = 0;
@@ -173,7 +196,7 @@ ssize_t fdc_write(fd_cache_t fd, const void *buf, size_t count, off_t offset, ss
 		/* directly write to filesystem */
 	}
 
-	/* TODO return value */
+	return nwritten;
 }
 
 /*
@@ -190,7 +213,10 @@ ssize_t fdc_write(fd_cache_t fd, const void *buf, size_t count, off_t offset, ss
 ssize_t _fdc_ram_cluster_read(fd_cache_entry_t *ent, size_t cidx, void *buf, size_t count, off_t coff)
 {
 	const size_t cluster_size = ent->block_size * ent->blocks_per_cluster;
-	assert(count + coff <= cluster_size);
+	if (coff < 0 || coff > cluster_size)
+		return -EINVAL;
+	if (count + coff > cluster_size)
+		return -EOVERFLOW;
 
 	/* retrieve the memory region corresponding to the cluster */
 	void *clusterbuf = g_tree_lookup(ent->u.ram.buf_map, (gpointer*) cidx);
@@ -207,6 +233,7 @@ ssize_t fdc_read(fd_cache_t fd, void *buf, size_t count, off_t offset)
 
 	const size_t cluster_size = ent->block_size * ent->blocks_per_cluster;
 	const size_t last_offset = offset + count > ent->total_size ? ent->total_size : offset + count;
+	size_t nread = 0;
 	ssize_t rc;
 
 	if (ent->location == IN_RAM_CACHE) {
@@ -230,8 +257,9 @@ ssize_t fdc_read(fd_cache_t fd, void *buf, size_t count, off_t offset)
 				printf("_fdc_ram_cluster_read: cidx=%lu buf=buf+0x%lu ccount=%lu coff=%lu\n", cidx, last_offset - nremain, ccount, coff);
 
 				rc = _fdc_ram_cluster_read(ent, cidx, buf + (count - nremain), ccount, coff);
-				if (rc< 0)
-					return -EFAULT;
+				if (rc < 0)
+					return rc;
+				nread += rc;
 
 				/* prepare for writing to next cluster */
 				coff = 0;
@@ -242,7 +270,6 @@ ssize_t fdc_read(fd_cache_t fd, void *buf, size_t count, off_t offset)
 			}
 
 		} else if (offset == ent->total_size) {
-
 			/* as pread, 0 means end-of-file and is not an error */
 			return 0;
 
@@ -254,7 +281,7 @@ ssize_t fdc_read(fd_cache_t fd, void *buf, size_t count, off_t offset)
 		/* not implemented */
 		assert(0);
 	}
-	return count;
+	return nread;
 }
 
 gint _key_cmp (gconstpointer a, gconstpointer b)
