@@ -70,6 +70,26 @@ void fdc_deinit()
 	memset(&_fd_cache, 0, sizeof(fd_cache_entry_t));
 }
 
+/**
+ * @brief __fdc_lookup look for a specific client inode
+ * @param ino
+ * @param free_idx set to the first free index if found, or negative if no
+ *                   free cache entry has been found during the lookup
+ * @return the cache entry or NULL if not found
+ */
+fd_cache_entry_t * __fdc_lookup(cache_ino_t ino, int *free_idx)
+{
+	int i = 0;
+	*free_idx = -1;
+	for (; i < MAX_CACHE_ENTRIES; i++) {
+		if (_fd_cache[i].ino == ino)
+			return &_fd_cache[i];
+		else if (*free_idx == -1 && _fd_cache[i].ino == FREE_INODE)
+			*free_idx = i;
+	}
+	return NULL;
+}
+
 int fdc_get_or_create(
 		cache_ino_t ino,
 		size_t block_size,
@@ -82,32 +102,31 @@ int fdc_get_or_create(
 	}
 
 	/* look for existing cache entry */
-	int i = 0;
-	int i_free = -1;
-	for (; i < MAX_CACHE_ENTRIES; i++)
-	{
-		if (_fd_cache[i].ino == ino) {
-			*fd = (fd_cache_t)&_fd_cache[i];
-			return 0;
-		} else if (i_free == -1 && _fd_cache[i].ino == FREE_INODE) {
-			i_free = i;
-		}
+	fd_cache_entry_t * ent;
+	int free_idx = -1;
+	ent = __fdc_lookup(ino, &free_idx);
+	if (ent) {
+		 *fd = (fd_cache_t) ent;
+		return 0;
 	}
 
 	/* create cache entry at the first free entry */
-	if (i_free == -1)
+	if (free_idx == -1)
 		return -ENFILE;
 
 	/* create new cache entry, in ram and empty */
-	_fd_cache[i_free].ino = ino;
-	_fd_cache[i_free].total_size = 0;
-	_fd_cache[i_free].location = IN_RAM_CACHE;
-	_fd_cache[i_free].block_size = block_size;
-	_fd_cache[i_free].blocks_per_cluster = blocks_per_cluster;
-	_fd_cache[i_free].u.ram.buf_map = g_tree_new (_key_cmp);
-	_fd_cache[i_free].bitmap = 0; /* bitmap will be allocated at first write */
+	ent = &_fd_cache[free_idx];
+	ent->ino = ino;
+	ent->total_size = 0;
+	ent->location = IN_RAM_CACHE;
+	ent->block_size = block_size;
+	ent->blocks_per_cluster = blocks_per_cluster;
+	ent->u.ram.buf_map = g_tree_new (_key_cmp);
+	ent->bitmap = 0; /* bitmap will be allocated at first write */
 
-	*fd = (fd_cache_t)&_fd_cache[i_free];
+	*fd = (fd_cache_t) ent;
+	return 0;
+}
 	return 0;
 }
 
