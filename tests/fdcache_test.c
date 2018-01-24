@@ -142,6 +142,7 @@ void test_fdcache_get_or_create_return_codes()
 {
 	const size_t max_cache_entries = 20; /* defined in fd_cache.c*/
 	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
+	const size_t max_cache_entries = 20;
 	size_t i;
 	fd_cache_t ice1;
 
@@ -164,14 +165,49 @@ void test_fdcache_get_or_create_return_codes()
 	fdc_deinit();
 }
 
-void test_fdcache_ram_cluster_read_return_codes()
+void test_fdcache_ram_cluster_write_return_codes()
 {
 
 }
 
-void test_fdcache_ram_cluster_write_return_codes()
+void test_fdcache_read_return_codes()
 {
+	const size_t max_cache_entries = 20; /* defined in fd_cache.c*/
+	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
+	ssize_t full_cluster;
+	char buf[16];
+	const char refbuf[] = "\x00\x01\x02\x03\x04\x05\x06\x07";
+	fd_cache_t ice1;
 
+	fdc_init(ram_fs_limit);
+
+	CU_ASSERT_RC_SUCCESS(fdc_get_or_create, 0, 2, 2, &ice1);
+
+	/* negative offset */
+	CU_ASSERT_RC_EQUAL(-EINVAL, fdc_read, ice1, buf, 16, -1);
+
+	/* write 1 byte at offset 0 */
+	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf, 1, 0, &full_cluster));
+	/* write 1 byte at offset 15, making the entry 16 bytes long */
+	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf, 1, 15, &full_cluster));
+
+	/* reading past buffer end */
+	CU_ASSERT_RC_EQUAL(-EOVERFLOW, fdc_read, ice1, buf, 1, 16);
+	CU_ASSERT_RC_EQUAL(-EOVERFLOW, fdc_read, ice1, buf, 17, 1);
+
+	/* read allocated clusters */
+	CU_ASSERT_RC_EQUAL(1, fdc_read, ice1, buf, 1, 0);
+	CU_ASSERT_RC_EQUAL(2, fdc_read, ice1, buf, 2, 0);
+	CU_ASSERT_RC_EQUAL(3, fdc_read, ice1, buf, 3, 1);
+
+	CU_ASSERT_RC_EQUAL(1, fdc_read, ice1, buf, 1, 14);
+	CU_ASSERT_RC_EQUAL(2, fdc_read, ice1, buf, 2, 13);
+	CU_ASSERT_RC_EQUAL(3, fdc_read, ice1, buf, 3, 12);
+
+	/* trying to read unallocated clusters */
+	CU_ASSERT_RC_EQUAL(-EFAULT, fdc_read, ice1, buf, 1, 4);
+	CU_ASSERT_RC_EQUAL(-EFAULT, fdc_read, ice1, buf, 1, 8);
+	fdc_deinit();
 }
 
 int init_fdcache_test_suite(void) {
@@ -202,7 +238,7 @@ int main()
 	if ((NULL == CU_add_test(pSuite, "fdcache creation/deletion", test_fdcache_creation_deletion)) ||
 	    (NULL == CU_add_test(pSuite, "fdcache read/write RAM", test_fdcache_read_write_ram)) ||
 	    (NULL == CU_add_test(pSuite, "fdcache get_or_create return codes", test_fdcache_get_or_create_return_codes)) ||
-	    (NULL == CU_add_test(pSuite, "fdcache RAM cluster read return codes", test_fdcache_ram_cluster_read_return_codes)) ||
+	    (NULL == CU_add_test(pSuite, "fdcache read return codes", test_fdcache_read_return_codes)) ||
 	    (NULL == CU_add_test(pSuite, "fdcache RAM cluster write return codes", test_fdcache_ram_cluster_write_return_codes))) {
 		CU_cleanup_registry();
 		return CU_get_error();

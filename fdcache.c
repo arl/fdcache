@@ -287,6 +287,12 @@ ssize_t fdc_read(fd_cache_t fd,
 	size_t nread = 0;
 	ssize_t rc;
 
+	if (offset < 0 || offset > ent->total_size)
+		return -EINVAL;
+
+	if (count + offset > ent->total_size)
+		return -EOVERFLOW;
+
 	if (ent->location == IN_RAM_CACHE) {
 		if (offset < ent->total_size) {
 			/* compute indices of first and last clusters to read from */
