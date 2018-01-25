@@ -24,6 +24,15 @@ void fdc_init(size_t ram_fs_limit)
 	_ram_fs_limit = ram_fs_limit;
 }
 
+gboolean _buf_map_free_cluster(gpointer cidx,
+			       gpointer cbuf,
+			       gpointer data)
+{
+	/* free the cluster */
+	free((void*) cbuf);
+	return FALSE;
+}
+
 void fdc_deinit()
 {
 	int i = 0;
@@ -31,10 +40,17 @@ void fdc_deinit()
 		fd_cache_entry_t *ent = &_fd_cache[i];
 		if (ent->ino != FREE_INODE) {
 			if (ent->location == IN_RAM_CACHE) {
-				// TODO: continue
-//				free(ent->u.ram.buffer);
-			} else {
+				if (ent->bitmap)
+					bitmap_dealloc(ent->bitmap);
 
+				/* free allocated clusters */
+				g_tree_foreach(ent->u.ram.buf_map,
+					       _buf_map_free_cluster,
+					       NULL);
+				g_tree_destroy(ent->u.ram.buf_map);
+				ent->u.ram.buf_map = NULL;
+			} else {
+				/* TODO: to implement */
 			}
 		}
 	}
