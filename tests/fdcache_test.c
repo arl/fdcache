@@ -171,6 +171,7 @@ void test_fdcache_ram_cluster_write_return_codes()
 	ssize_t full_cluster;
 	const char refbuf[] = "\x00\x01\x02\x03\x04\x05\x06\x07";
 	fd_cache_t ice1;
+	bool unique_cluster = false;
 
 	fdc_init(ram_fs_limit);
 
@@ -182,13 +183,13 @@ void test_fdcache_ram_cluster_write_return_codes()
 	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf, 1, 15, &full_cluster));
 
 	/* invalid offsets */
-	CU_ASSERT_EQUAL(-EINVAL, _fdc_ram_cluster_write(ice1, 0, refbuf, 1, -1));
-	CU_ASSERT_EQUAL(-EINVAL, _fdc_ram_cluster_write(ice1, 0, refbuf, 0, 5));
+	CU_ASSERT_EQUAL(-EINVAL, _fdc_ram_cluster_write(ice1, 0, refbuf, 1, -1, unique_cluster));
+	CU_ASSERT_EQUAL(-EINVAL, _fdc_ram_cluster_write(ice1, 0, refbuf, 0, 5, unique_cluster));
 
 	/* trying to write past cluster end */
-	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 1, 4));
-	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 2, 3));
-	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 3, 2));
+	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 1, 4, unique_cluster));
+	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 2, 3, unique_cluster));
+	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 3, 2, unique_cluster));
 
 	fdc_deinit();
 }

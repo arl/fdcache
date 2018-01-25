@@ -110,30 +110,37 @@ ssize_t _fdc_ram_cluster_write(fd_cache_entry_t *ent,
 			       size_t cidx,
 			       const void *buf,
 			       size_t count,
-			       off_t coff)
+			       off_t coff,
+			       bool unique_cluster)
 {
 	const size_t cluster_size = ent->block_size * ent->blocks_per_cluster;
+	const size_t last_coff = count + coff;
 	if (coff < 0 || coff > cluster_size)
 		return -EINVAL;
 	if (count + coff > cluster_size)
 		return -EOVERFLOW;
 
 	/* retrieve the memory region corresponding to the cluster */
-	void *clusterbuf = g_tree_lookup(ent->u.ram.buf_map, (gpointer*) cidx);
-	if (clusterbuf == NULL) {
-		/* TODO: if the file is currently made of 1 cluster only
-		 * (check with cidx and ent->total_size, we don't need to
-		 * allocate the full cluster */
-
-		/* allocate the cluster */
-		clusterbuf = malloc(sizeof(cluster_size));
-		if (!clusterbuf) {
+	void *cbuf = g_tree_lookup(ent->u.ram.buf_map, (gpointer*) cidx);
+	if (cbuf == NULL) {
+		/* allocate the cluster memory. If the entry is made of a single
+		 * cluster, we just allocate the required memory, and not the
+		 * whole cluster */
+		cbuf = malloc(unique_cluster ? last_coff : cluster_size);
+		if (!cbuf)
 			return -ENOMEM;
-		} else {
-			g_tree_insert(ent->u.ram.buf_map, (gpointer*) cidx, clusterbuf);
+		g_tree_insert(ent->u.ram.buf_map, (gpointer*) cidx, cbuf);
+	}
+	if (unique_cluster && last_coff > ent->total_size) {
+		/* in case of single cluster entry, we may need to realloc if
+		 * not enough memory was allocated in previous writes */
+		void *newcbuf = realloc(cbuf, last_coff);
+		if (newcbuf != cbuf) {
+			/* memory was moved, update the buffer tree */
+			g_tree_insert(ent->u.ram.buf_map, (gpointer*) cidx, newcbuf);
 		}
 	}
-	memcpy(clusterbuf + coff, buf, count);
+	memcpy(cbuf + coff, buf, count);
 	return count;
 }
 
@@ -176,7 +183,7 @@ ssize_t fdc_write(fd_cache_t fd,
 			printf("_fdc_ram_cluster_write: cidx=%lu buf=buf+0x%lu ccount=%lu coff=%lu\n",
 			       cidx, last_offset - nremain, ccount, coff);
 
-			rc = _fdc_ram_cluster_write(ent, cidx, buf + (count - nremain), ccount, coff);
+			rc = _fdc_ram_cluster_write(ent, cidx, buf + (count - nremain), ccount, coff, last_cidx == 0);
 			if (rc < 0)
 				return rc;
 			nwritten += rc;

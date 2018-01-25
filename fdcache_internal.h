@@ -46,13 +46,14 @@ fd_cache_entry_t * __fdc_lookup(cache_ino_t ino, int *free_idx);
 /**
  * @brief _fdc_ram_cluster_write writes up to count bytes from the buffer
  *                         starting at buf to the cluster represented by cidx,
- *                         at offset coff.
+ *                         at offset coff. Only for entries located in RAM.
  * @param ent cache entry
  * @param cidx index of the cache entry cluster. Allocate the whole cluster if
  *                         it's not allocated yet
  * @param buf buffer to write
  * @param count number of bytes to write
  * @param coff offset from the cluster start
+ * @param unique_cluster the whole entry holds on a single cluster
  * @return the number of bytes written or a negative errno value to indicate an
  *                         error. Possible error codes:
  *	* -ENOMEM cluster can't be allocated
@@ -63,7 +64,8 @@ ssize_t _fdc_ram_cluster_write(fd_cache_entry_t *ent,
 			       size_t cidx,
 			       const void *buf,
 			       size_t count,
-			       off_t coff);
+			       off_t coff,
+			       bool unique_cluster);
 
 /**
  * @brief _fdc_ram_cluster_read reads up to count bytes from the cluster
