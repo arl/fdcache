@@ -9,13 +9,8 @@
 
 /* test helpers */
 
-char * __sprint_buffer(char * dst, const char *buf, size_t len)
-{
-	size_t i = -1;
-	while(++i < len)
-		sprintf(dst + i*5, "0x%02x ", (unsigned char)(buf[i]));
-	return dst;
-}
+char * __sprint_buffer(char * dst, const char *buf, size_t len);
+size_t count_allocated_memory();
 
 #define __PRINT_BUF_MAXLEN 128
 
@@ -54,10 +49,45 @@ char * __sprint_buffer(char * dst, const char *buf, size_t len)
 	int __rc = __function(__VA_ARGS__);\
 	CU_ASSERT_EQUAL_FATAL(__rc, __rcwant); })
 
+#define CU_LEAK_CHECK_BEGIN size_t epoch = 0; ssize_t __alloc_1 = (ssize_t) __report_allocated(&epoch);
+#define CU_LEAK_CHECK_END do {\
+	ssize_t __alloc_diff = (ssize_t) __report_allocated(&epoch) - __alloc_1;\
+	if (__alloc_diff <= 0) {\
+		CU_PASS("allocation differential is null");\
+	} else {\
+		char failmsg[256];\
+		sprintf(failmsg, "positive allocation differential %lub", __alloc_diff);\
+		CU_assertImplementation(CU_FALSE, __LINE__, failmsg, __FILE__, __func__, CU_FALSE);\
+	}} while(0)
+
+size_t __report_allocated(size_t *epoch)
+{
+	size_t sz, allocated;
+
+	/* update epoch */
+	sz = sizeof(epoch);
+	mallctl("epoch", &epoch, &sz, &epoch, sz);
+
+	/* retrieve allocated memory */
+	sz = sizeof(size_t);
+	mallctl("stats.allocated", &allocated, &sz, NULL, 0);
+	return allocated;
+}
+
+char * __sprint_buffer(char *dst, const char *buf, size_t len)
+{
+	size_t i = -1;
+	while(++i < len)
+		sprintf(dst + i*5, "0x%02x ", (unsigned char) (buf[i]));
+	return dst;
+}
+
 /* fdcache test suite */
 
 void test_fdcache_creation_deletion()
 {
+	CU_LEAK_CHECK_BEGIN;
+
 	cache_ino_t ino1 = 1;
 	size_t multipart_limit = 5 << 20;	// 5 Megabytes
 	size_t ram_fs_limit = 1024 << 20;	// 1 Gigabytes
@@ -66,10 +96,14 @@ void test_fdcache_creation_deletion()
 	fdc_init(ram_fs_limit);
 	CU_ASSERT_RC_SUCCESS(fdc_get_or_create, ino1, multipart_limit, 5, &ice1);
 	fdc_deinit();
+
+	CU_LEAK_CHECK_END;
 }
 
 void test_fdcache_read_write_ram()
 {
+	CU_LEAK_CHECK_BEGIN;
+
 	cache_ino_t ino1 = 1;
 	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
 	ssize_t full_cluster;
@@ -137,10 +171,13 @@ void test_fdcache_read_write_ram()
 
 		fdc_deinit();
 	}
+	CU_LEAK_CHECK_END;
 }
 
 void test_fdcache_get_or_create_return_codes()
 {
+	CU_LEAK_CHECK_BEGIN;
+
 	const size_t max_cache_entries = 20;
 	size_t ram_fs_limit = 1024 << 20;
 	size_t i;
@@ -163,10 +200,13 @@ void test_fdcache_get_or_create_return_codes()
 	CU_ASSERT_RC_EQUAL(-ENFILE, fdc_get_or_create, i, 1, 1, &ice1);
 
 	fdc_deinit();
+	CU_LEAK_CHECK_END;
 }
 
 void test_fdcache_ram_cluster_write_return_codes()
 {
+	CU_LEAK_CHECK_BEGIN;
+
 	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
 	ssize_t full_cluster;
 	const char refbuf[] = "\x00\x01\x02\x03\x04\x05\x06\x07";
@@ -192,10 +232,13 @@ void test_fdcache_ram_cluster_write_return_codes()
 	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 3, 2, unique_cluster));
 
 	fdc_deinit();
+	CU_LEAK_CHECK_END;
 }
 
 void test_fdcache_read_return_codes()
 {
+	CU_LEAK_CHECK_BEGIN;
+
 	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
 	ssize_t full_cluster;
 	char buf[16];
@@ -231,10 +274,13 @@ void test_fdcache_read_return_codes()
 	CU_ASSERT_RC_EQUAL(-EFAULT, fdc_read, ice1, buf, 1, 4);
 	CU_ASSERT_RC_EQUAL(-EFAULT, fdc_read, ice1, buf, 1, 8);
 	fdc_deinit();
+	CU_LEAK_CHECK_END;
 }
 
 void test_fdcache_entry_size_mem()
 {
+	CU_LEAK_CHECK_BEGIN;
+
 	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
 	ssize_t full_cluster;
 	const char refbuf[] = "\x00\x01\x02\x03\x04\x05\x06\x07";
@@ -263,16 +309,18 @@ void test_fdcache_entry_size_mem()
 	/* TODO: check that entry mem is 2*4 (2 clusters allocated) */
 
 	fdc_deinit();
+	CU_LEAK_CHECK_END;
 }
 
-int init_fdcache_test_suite(void) {
+int init_fdcache_test_suite()
+{
 	/* init PRNG */
 	srand(time(NULL));
 	return 0;
 }
 
-int clean_fdcache_test_suite(void) {
-	/* malloc_stats_print(NULL, NULL, NULL); */
+int clean_fdcache_test_suite()
+{
 	return 0;
 }
 
