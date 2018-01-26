@@ -37,6 +37,9 @@ void bitmap_reset_range(bitmap_hdl hdl, size_t pos, int len);
 /* get the state of a specific bit */
 bool bitmap_get(bitmap_hdl hdl, size_t pos);
 
+/* count the number of set bits in the bitmap */
+size_t bitmap_count_setbits(bitmap_hdl hdl);
+
 /* copy nbits bits from src bitmap to dst bitmap */
 void bitmap_copy(bitmap_hdl dst, const bitmap_hdl src, size_t nbits);
 

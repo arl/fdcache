@@ -129,6 +129,24 @@ bool bitmap_get(bitmap_hdl hdl, size_t pos)
 	return (*p & BIT_MASK(pos)) != 0;
 }
 
+size_t bitmap_count_setbits(bitmap_hdl hdl)
+{
+	bitmap_t *bm = (bitmap_t *) hdl;
+	unsigned long *p = bm->bits;
+	ssize_t nremain = bm->nbits;
+	size_t nsetbits = 0;
+
+	while (nremain >= BITS_PER_LONG) {
+		nsetbits += __builtin_popcountl(*p);
+		nremain -= BITS_PER_LONG;
+		p++;
+	}
+	if (nremain) {
+		nsetbits += __builtin_popcountl(*p & BITMAP_LAST_WORD_MASK(bm->nbits));
+	}
+	return nsetbits;
+}
+
 void bitmap_copy(bitmap_hdl dst, const bitmap_hdl src, size_t nbits)
 {
 	bitmap_t *dstbm = (bitmap_t *) dst;
@@ -140,14 +158,14 @@ void bitmap_copy(bitmap_hdl dst, const bitmap_hdl src, size_t nbits)
 void bitmap_realloc(bitmap_hdl hdl, size_t nbits)
 {
 	bitmap_t *bm = (bitmap_t *) hdl;
-	size_t oldnbytes = BITS_TO_LONGS(bm->nbits) * sizeof(unsigned long);
-	size_t newnbytes = BITS_TO_LONGS(nbits) * sizeof(unsigned long);
 	if (nbits != bm->nbits) {
-		unsigned long *tmpbits;
-		tmpbits = (unsigned long*) malloc(newnbytes);
+		size_t oldnbytes = BITS_TO_LONGS(bm->nbits) * sizeof(unsigned long);
+		size_t newnbytes = BITS_TO_LONGS(nbits) * sizeof(unsigned long);
+		unsigned long *tmpbits = (unsigned long*) malloc(newnbytes);
 		size_t minbytes = nbits < bm->nbits ? newnbytes : oldnbytes;
 		memcpy(tmpbits, bm->bits, minbytes);
 		free(bm->bits);
 		bm->bits = tmpbits;
+		bm->nbits = nbits;
 	}
 }

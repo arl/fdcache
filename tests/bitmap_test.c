@@ -302,6 +302,64 @@ void test_bitmap_reset_range()
 	}
 }
 
+void test_bitmap_count_setbits()
+{
+	size_t tidx;
+	size_t last_nbits = 0;
+	bitmap_hdl bm = 0;
+
+	typedef struct test_table_ {
+		size_t setpos;		/* bit to set */
+		size_t want_setbits;	/* expected number of set bits */
+		size_t nbits;		/* bitmap length (if different than last  */
+					/* test, bitmap is resized and zero'ed)*/
+	} test_table;
+
+	test_table tt[]= {
+		{ .nbits = 127,  .setpos = 0,		.want_setbits = 1 },
+		{ .nbits = 127,  .setpos = 126,		.want_setbits = 2 },
+		{ .nbits = 1024, .setpos = 0,		.want_setbits = 1 },
+		{ .nbits = 1024, .setpos = 1,		.want_setbits = 2 },
+		{ .nbits = 1024, .setpos = 512,		.want_setbits = 3 },
+		{ .nbits = 1023, .setpos = 0,		.want_setbits = 1 },
+		{ .nbits = 1023, .setpos = 1022,	.want_setbits = 2 },
+		{ .nbits = 1023, .setpos = 512,		.want_setbits = 3 },
+		{ .nbits = 1025, .setpos = 0,		.want_setbits = 1 },
+		{ .nbits = 1025, .setpos = 1022,	.want_setbits = 2 },
+		{ .nbits = 1025, .setpos = 1023,	.want_setbits = 3 },
+		{ .nbits = 1025, .setpos = 1024,	.want_setbits = 4 },
+		{ .nbits = 1025, .setpos = 512,		.want_setbits = 5 },
+		{ .nbits = 1025, .setpos = 1,		.want_setbits = 6 },
+		{ .nbits = 1025, .setpos = 2,		.want_setbits = 7 },
+		{ .nbits = 1025, .setpos = 3,		.want_setbits = 8 },
+		{ .nbits = 1025, .setpos = 4,		.want_setbits = 9 },
+		{ .nbits = 1025, .setpos = 5,		.want_setbits = 10 },
+		{ .nbits = 1025, .setpos = 65,		.want_setbits = 11 },
+		{ .nbits = 1025, .setpos = 64,		.want_setbits = 12 },
+		{ .nbits = 1025, .setpos = 63,		.want_setbits = 13 },
+		{ .nbits = 1025, .setpos = 1020,	.want_setbits = 14 },
+		{ .nbits = 1025, .setpos = 1019,	.want_setbits = 15 },
+	};
+
+	for (tidx = 0; tidx < sizeof(tt) / sizeof(tt[0]); ++tidx) {
+		test_table *t = &tt[tidx];
+
+		if (last_nbits != t->nbits) {
+			if (!last_nbits)
+				bm = bitmap_alloc(t->nbits);
+			else
+				bitmap_realloc(bm, t->nbits);
+			bitmap_zero(bm);
+			last_nbits = t->nbits;
+		}
+
+		bitmap_set(bm, t->setpos);
+		CU_ASSERT_EQUAL_FATAL(t->want_setbits, bitmap_count_setbits(bm));
+	}
+
+	bitmap_free(bm);
+}
+
 int init_bitmap_test_suite(void) {
 	/* init PRNG */
 	srand(time(NULL));
@@ -348,7 +406,8 @@ int main()
 	    (NULL == CU_add_test(pSuite, "bitmap copy", test_bitmap_copy)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap range set", test_bitmap_set_range)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap range reset", test_bitmap_reset_range)) ||
-	    (NULL == CU_add_test(pSuite, "bitmap zero/fill", test_bitmap_zero_fill))) {
+	    (NULL == CU_add_test(pSuite, "bitmap zero/fill", test_bitmap_zero_fill)) ||
+	    (NULL == CU_add_test(pSuite, "bitmap count set bits", test_bitmap_count_setbits))) {
 		CU_cleanup_registry();
 		return CU_get_error();
 	}
