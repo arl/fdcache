@@ -1,11 +1,11 @@
-#include <stdlib.h>
 #include <time.h>
-#include <CUnit/Basic.h>
+#include <stdlib.h>
+#include "test_helpers.h"
 #include "../bitmap.h"
 
-/* test helpers */
+
+/* forward declarations */
 void randomize_bits(bitmap_hdl hdl);
-size_t min(size_t a, size_t b) { return a < b ? a : b; }
 
 void test_bitmap_alloc_free()
 {
@@ -198,6 +198,14 @@ void test_bitmap_copy()
 	}
 }
 
+int init_bitmap_test_suite(void) {
+	/* init PRNG */
+	srand(time(NULL));
+	return 0;
+}
+
+int clean_bitmap_test_suite(void) { return 0; }
+
 void randomize_bits(bitmap_hdl hdl)
 {
 	size_t i = 0;
@@ -215,14 +223,6 @@ void randomize_bits(bitmap_hdl hdl)
 		}
 	}
 }
-
-int init_bitmap_test_suite(void) {
-	/* init PRNG */
-	srand(time(NULL));
-	return 0;
-}
-
-int clean_bitmap_test_suite(void) { return 0; }
 
 int main()
 {
