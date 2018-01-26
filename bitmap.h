@@ -25,8 +25,14 @@ void bitmap_fill(bitmap_hdl hdl);
 /* set a specific bit */
 void bitmap_set(bitmap_hdl hdl, size_t pos);
 
+/* set a specific range */
+void bitmap_set_range(bitmap_hdl hdl, size_t pos, int len);
+
 /* reset a specific bit */
 void bitmap_reset(bitmap_hdl hdl, size_t pos);
+
+/* reset a specific range */
+void bitmap_reset_range(bitmap_hdl hdl, size_t pos, int len);
 
 /* get the state of a specific bit */
 bool bitmap_get(bitmap_hdl hdl, size_t pos);

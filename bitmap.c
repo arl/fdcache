@@ -69,8 +69,29 @@ void bitmap_fill(bitmap_hdl hdl)
 void bitmap_set(bitmap_hdl hdl, size_t pos)
 {
 	bitmap_t *bm = (bitmap_t*) hdl;
-	unsigned long *p = ((unsigned long *)bm->bits) + BIT_WORD(pos);
+	unsigned long *p = ((unsigned long *) bm->bits) + BIT_WORD(pos);
 	*p |= BIT_MASK(pos);
+}
+
+void bitmap_set_range(bitmap_hdl hdl, size_t pos, int len)
+{
+	bitmap_t *bm = (bitmap_t*) hdl;
+	unsigned long *p = (unsigned long *) bm->bits + BIT_WORD(pos);
+	const unsigned int size = pos + len;
+	int bits_to_set = BITS_PER_LONG - (pos % BITS_PER_LONG);
+	unsigned long mask_to_set = BITMAP_FIRST_WORD_MASK(pos);
+
+	while (len - bits_to_set >= 0) {
+		*p |= mask_to_set;
+		len -= bits_to_set;
+		bits_to_set = BITS_PER_LONG;
+		mask_to_set = ~0UL;
+		p++;
+	}
+	if (len) {
+		mask_to_set &= BITMAP_LAST_WORD_MASK(size);
+		*p |= mask_to_set;
+	}
 }
 
 void bitmap_reset(bitmap_hdl hdl, size_t pos)
@@ -78,6 +99,27 @@ void bitmap_reset(bitmap_hdl hdl, size_t pos)
 	bitmap_t *bm = (bitmap_t*) hdl;
 	unsigned long *p = ((unsigned long *)bm->bits) + BIT_WORD(pos);
 	*p &= ~(BIT_MASK(pos));
+}
+
+void bitmap_reset_range(bitmap_hdl hdl, size_t pos, int len)
+{
+	bitmap_t *bm = (bitmap_t*) hdl;
+	unsigned long *p = bm->bits + BIT_WORD(pos);
+	const unsigned int size = pos + len;
+	int bits_to_clear = BITS_PER_LONG - (pos % BITS_PER_LONG);
+	unsigned long mask_to_clear = BITMAP_FIRST_WORD_MASK(pos);
+
+	while (len - bits_to_clear >= 0) {
+		*p &= ~mask_to_clear;
+		len -= bits_to_clear;
+		bits_to_clear = BITS_PER_LONG;
+		mask_to_clear = ~0UL;
+		p++;
+	}
+	if (len) {
+		mask_to_clear &= BITMAP_LAST_WORD_MASK(size);
+		*p &= ~mask_to_clear;
+	}
 }
 
 bool bitmap_get(bitmap_hdl hdl, size_t pos)

@@ -198,6 +198,110 @@ void test_bitmap_copy()
 	}
 }
 
+void test_bitmap_set_range()
+{
+	bitmap_hdl bm;
+	size_t tidx;
+
+	typedef struct test_table_ {
+		size_t nbits;	/* bitmap length*/
+		size_t pos;	/* range start */
+		int len;	/* range length */
+	} test_table;
+
+	test_table tt[]= {
+		{ .nbits = 1, .pos = 0, .len = 1},
+		{ .nbits = 2, .pos = 0, .len = 1},
+		{ .nbits = 2, .pos = 1, .len = 1},
+		{ .nbits = 2, .pos = 0, .len = 2},
+		{ .nbits = 4, .pos = 0, .len = 1},
+		{ .nbits = 4, .pos = 1, .len = 2},
+		{ .nbits = 4, .pos = 3, .len = 1},
+		{ .nbits = 127, .pos = 0, .len = 127},
+		{ .nbits = 127, .pos = 126, .len = 1},
+		{ .nbits = 127, .pos = 60, .len = 4},
+		{ .nbits = 127, .pos = 60, .len = 10},
+		{ .nbits = 127, .pos = 64, .len = 1},
+		{ .nbits = 127, .pos = 64, .len = 64},
+		{ .nbits = 1024, .pos = 0, .len = 1024},
+		{ .nbits = 1024, .pos = 1, .len = 1023},
+		{ .nbits = 1024, .pos = 500, .len = 500},
+		{ .nbits = 1024, .pos = 1000, .len = 1},
+	};
+
+	for (tidx = 0; tidx < sizeof(tt) / sizeof(tt[0]); ++tidx) {
+		test_table *t = &tt[tidx];
+		size_t i;
+
+		bm = bitmap_alloc(t->nbits);
+		bitmap_zero(bm);
+		bitmap_set_range(bm, t->pos, t->len);
+
+		for (i = 0; i < t->pos; ++i)
+			CU_ASSERT_EQUAL_FATAL(false, bitmap_get(bm, i));
+
+		for (i = t->pos; i < t->pos + t->len; ++i)
+			CU_ASSERT_EQUAL_FATAL(true, bitmap_get(bm, i));
+
+		for (i = t->pos + t->len; i < t->nbits; ++i)
+			CU_ASSERT_EQUAL_FATAL(false, bitmap_get(bm, i));
+
+		bitmap_free(bm);
+	}
+}
+
+void test_bitmap_reset_range()
+{
+	bitmap_hdl bm;
+	size_t tidx;
+
+	typedef struct test_table_ {
+		size_t nbits;	/* bitmap length*/
+		size_t pos;	/* range start */
+		int len;	/* range length */
+	} test_table;
+
+	test_table tt[]= {
+		{ .nbits = 1, .pos = 0, .len = 1},
+		{ .nbits = 2, .pos = 0, .len = 1},
+		{ .nbits = 2, .pos = 1, .len = 1},
+		{ .nbits = 2, .pos = 0, .len = 2},
+		{ .nbits = 4, .pos = 0, .len = 1},
+		{ .nbits = 4, .pos = 1, .len = 2},
+		{ .nbits = 4, .pos = 3, .len = 1},
+		{ .nbits = 127, .pos = 0, .len = 127},
+		{ .nbits = 127, .pos = 126, .len = 1},
+		{ .nbits = 127, .pos = 60, .len = 4},
+		{ .nbits = 127, .pos = 60, .len = 10},
+		{ .nbits = 127, .pos = 64, .len = 1},
+		{ .nbits = 127, .pos = 64, .len = 64},
+		{ .nbits = 1024, .pos = 0, .len = 1024},
+		{ .nbits = 1024, .pos = 1, .len = 1023},
+		{ .nbits = 1024, .pos = 500, .len = 500},
+		{ .nbits = 1024, .pos = 1000, .len = 1},
+	};
+
+	for (tidx = 0; tidx < sizeof(tt) / sizeof(tt[0]); ++tidx) {
+		test_table *t = &tt[tidx];
+		size_t i;
+
+		bm = bitmap_alloc(t->nbits);
+		bitmap_fill(bm);
+		bitmap_reset_range(bm, t->pos, t->len);
+
+		for (i = 0; i < t->pos; ++i)
+			CU_ASSERT_EQUAL_FATAL(true, bitmap_get(bm, i));
+
+		for (i = t->pos; i < t->pos + t->len; ++i)
+			CU_ASSERT_EQUAL_FATAL(false, bitmap_get(bm, i));
+
+		for (i = t->pos + t->len; i < t->nbits; ++i)
+			CU_ASSERT_EQUAL_FATAL(true, bitmap_get(bm, i));
+
+		bitmap_free(bm);
+	}
+}
+
 int init_bitmap_test_suite(void) {
 	/* init PRNG */
 	srand(time(NULL));
@@ -242,6 +346,8 @@ int main()
 	    (NULL == CU_add_test(pSuite, "bitmap get/set", test_bitmap_get_set)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap realloc", test_bitmap_realloc)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap copy", test_bitmap_copy)) ||
+	    (NULL == CU_add_test(pSuite, "bitmap range set", test_bitmap_set_range)) ||
+	    (NULL == CU_add_test(pSuite, "bitmap range reset", test_bitmap_reset_range)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap zero/fill", test_bitmap_zero_fill))) {
 		CU_cleanup_registry();
 		return CU_get_error();
