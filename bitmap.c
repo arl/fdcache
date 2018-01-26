@@ -33,7 +33,7 @@ bitmap_hdl bitmap_alloc(size_t nbits)
 	return bm;
 }
 
-size_t bitmap_numbits(bitmap_hdl hdl)
+size_t bitmap_length(bitmap_hdl hdl)
 {
 	bitmap_t *bm = (bitmap_t*) hdl;
 	if (bm)

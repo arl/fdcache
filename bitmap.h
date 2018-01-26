@@ -10,8 +10,8 @@ typedef void* bitmap_hdl;
 /* allocate a bitmap */
 bitmap_hdl bitmap_alloc(size_t numbits);
 
-/* return the number of allocated bits */
-size_t bitmap_numbits(bitmap_hdl hdl);
+/* return the bitmap length in bits */
+size_t bitmap_length(bitmap_hdl hdl);
 
 /* free the memory space used by the bitmap hdl */
 void bitmap_free(bitmap_hdl hdl);

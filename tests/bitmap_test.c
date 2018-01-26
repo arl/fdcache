@@ -314,7 +314,7 @@ void randomize_bits(bitmap_hdl hdl)
 {
 	size_t i = 0;
 	size_t b = 0;
-	size_t nbits = bitmap_numbits(hdl);
+	size_t nbits = bitmap_length(hdl);
 	while (i < nbits)
 	{
 		int r = rand();
