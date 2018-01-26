@@ -57,6 +57,16 @@ int fdc_get_or_create(cache_ino_t ino,
  */
 int fdc_entry_size(cache_ino_t ino, size_t *nbytes);
 
+/**
+ * @brief fdc_entry_mem get the total memory used by a client inode.
+ * @param ino client inode number
+ * @param nbytes on success, set to the number of bytes that are currently
+ *                        allocated for this entry
+ * @return 0 on success, -EFAULT if cache entry was not found
+ */
+int fdc_entry_mem(cache_ino_t ino, size_t *nbytes);
+
+/**
  * @brief fdc_write writes up to count bytes from the buffer starting at
  *                         buf to the cache entry fd, at offset offset. Required
  *                         number of clusters will be allocated.
@@ -74,7 +84,6 @@ ssize_t fdc_write(fd_cache_t fd,
 		  size_t count,
 		  off_t offset,
 		  ssize_t *full_cluster);
-
 
 /**
  * @brief fdc_read reads up to count bytes from the cache entry fd, at offset

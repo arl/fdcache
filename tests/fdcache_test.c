@@ -209,31 +209,89 @@ void test_fdcache_entry_size_mem()
 	size_t ram_fs_limit = 1024 << 20;	/* 1024 MB */
 	ssize_t full_cluster;
 	const char refbuf[] = "\x00\x01\x02\x03\x04\x05\x06\x07";
-	size_t size;
+	size_t nbytes;
 	fd_cache_t ice1;
+	cache_ino_t ino = 0;
 
 	fdc_init(ram_fs_limit);
 
-	/* trying to retrieve size of an unknown entry */
-	CU_ASSERT_RC_EQUAL(-EFAULT, fdc_entry_size, 0, &size);
+	/* trying to retrieve size of an unknown entry (ino = 0)*/
+	ino = 0;
+	CU_ASSERT_RC_EQUAL(-EFAULT, fdc_entry_size, ino, &nbytes);
 
-	CU_ASSERT_RC_SUCCESS(fdc_get_or_create, 0, 2, 2, &ice1);
+	CU_ASSERT_RC_SUCCESS(fdc_get_or_create, ino, 2, 2, &ice1);
 
 	/* write 1 byte at offset 0 */
 	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf, 1, 0, &full_cluster));
-	CU_ASSERT_RC_SUCCESS(fdc_entry_size, 0, &size);
-	CU_ASSERT_EQUAL(1, size);
+	/* check size = 1, mem = 1 */
+	CU_ASSERT_RC_SUCCESS(fdc_entry_size, ino, &nbytes);
+	CU_ASSERT_EQUAL(1, nbytes);
+	CU_ASSERT_RC_SUCCESS(fdc_entry_mem, ino, &nbytes);
+	CU_ASSERT_EQUAL(1, nbytes);
 
-	/* TODO: check that entry mem is 4 (cluster size) */
+	/* write 1 byte at offset 1 */
+	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf + 1, 1, 1, &full_cluster));
+	/* check size = 2, mem = 2 */
+	CU_ASSERT_RC_SUCCESS(fdc_entry_size, ino, &nbytes);
+	CU_ASSERT_EQUAL(2, nbytes);
+	CU_ASSERT_RC_SUCCESS(fdc_entry_mem, ino, &nbytes);
+	CU_ASSERT_EQUAL(2, nbytes);
 
-	/* write 1 byte at offset 15, making the entry 16 bytes long */
-	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf, 1, 15, &full_cluster));
-	CU_ASSERT_RC_SUCCESS(fdc_entry_size, 0, &size);
-	CU_ASSERT_EQUAL(16, size);
+	/* write 1 byte at offset 3 */
+	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf + 3, 1, 3, &full_cluster));
+	/* check size = 4, mem = 4 */
+	CU_ASSERT_RC_SUCCESS(fdc_entry_size, ino, &nbytes);
+	CU_ASSERT_EQUAL(4, nbytes);
+	CU_ASSERT_RC_SUCCESS(fdc_entry_mem, ino, &nbytes);
+	CU_ASSERT_EQUAL(4, nbytes);
 
-	/* TODO: check that entry mem is 2*4 (2 clusters allocated) */
+	/* write 1 byte at offset 4 */
+	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf + 4, 1, 4, &full_cluster));
+	/* check size = 5, mem = 8 */
+	CU_ASSERT_RC_SUCCESS(fdc_entry_size, ino, &nbytes);
+	CU_ASSERT_EQUAL(5, nbytes);
+	CU_ASSERT_RC_SUCCESS(fdc_entry_mem, ino, &nbytes);
+	CU_ASSERT_EQUAL(8, nbytes);
+
+
+	/* trying to retrieve size of an unknown entry (ino = 1)*/
+	ino = 1;
+	CU_ASSERT_RC_EQUAL(-EFAULT, fdc_entry_size, ino, &nbytes);
+
+	CU_ASSERT_RC_SUCCESS(fdc_get_or_create, ino, 512, 2, &ice1);
+
+	/* check size is empty */
+	CU_ASSERT_RC_SUCCESS(fdc_entry_size, ino, &nbytes);
+	CU_ASSERT_EQUAL(0, nbytes);
+	CU_ASSERT_RC_SUCCESS(fdc_entry_mem, ino, &nbytes);
+	CU_ASSERT_EQUAL(0, nbytes);
+
+	/* write 1 byte at offset 1024 (1 cluster)*/
+	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf, 1, 1024, &full_cluster));
+	/* check size = 1025, mem = 1024 */
+	CU_ASSERT_RC_SUCCESS(fdc_entry_size, ino, &nbytes);
+	CU_ASSERT_EQUAL(1025, nbytes);
+	CU_ASSERT_RC_SUCCESS(fdc_entry_mem, ino, &nbytes);
+	CU_ASSERT_EQUAL(1024, nbytes);
+
+	/* write 1 byte at offset 1023 */
+	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf, 1, 1023, &full_cluster));
+	/* check size = 1025, mem = 2048 (2 clusters)*/
+	CU_ASSERT_RC_SUCCESS(fdc_entry_size, ino, &nbytes);
+	CU_ASSERT_EQUAL(1025, nbytes);
+	CU_ASSERT_RC_SUCCESS(fdc_entry_mem, ino, &nbytes);
+	CU_ASSERT_EQUAL(2 * 1024, nbytes);
+
+	/* write 1 byte at offset 1MB */
+	CU_ASSERT_EQUAL(1, fdc_write(ice1, refbuf, 1, 1024 * 1024, &full_cluster));
+	/* check size = 1+1024*1024, mem = 2048 (2 clusters)*/
+	CU_ASSERT_RC_SUCCESS(fdc_entry_size, ino, &nbytes);
+	CU_ASSERT_EQUAL(1 + 1024 * 1024, nbytes);
+	CU_ASSERT_RC_SUCCESS(fdc_entry_mem, ino, &nbytes);
+	CU_ASSERT_EQUAL(3 * 1024, nbytes);
 
 	fdc_deinit();
+
 	CU_LEAK_CHECK_END;
 }
 

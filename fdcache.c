@@ -119,6 +119,31 @@ int fdc_entry_size(cache_ino_t ino, size_t *nbytes)
 	*nbytes = ent->total_size;
 	return 0;
 }
+
+int fdc_entry_mem(cache_ino_t ino, size_t *nbytes)
+{
+	/* look for existing cache entry */
+	fd_cache_entry_t * ent;
+	int free_idx = -1;
+	ent = __fdc_lookup(ino, &free_idx);
+	if (!ent)
+		return -EFAULT;
+
+	if (ent->location == IN_RAM_CACHE) {
+		const size_t cluster_size = ent->block_size * ent->blocks_per_cluster;
+		if (ent->total_size <= cluster_size) {
+			/* special case, entry holds on a single cluster */
+			*nbytes = ent->total_size;
+		} else {
+			/* count the number of allocated clusters */
+			size_t nclusters = g_tree_nnodes(ent->u.ram.buf_map);
+			*nbytes = nclusters * ent->block_size * ent->blocks_per_cluster;
+		}
+	} else {
+		/* Not implemented ! */
+		assert(0);
+	}
+
 	return 0;
 }
 
