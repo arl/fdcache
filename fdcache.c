@@ -41,7 +41,7 @@ void fdc_deinit()
 		if (ent->ino != FREE_INODE) {
 			if (ent->location == IN_RAM_CACHE) {
 				if (ent->bitmap)
-					bitmap_dealloc(ent->bitmap);
+					bitmap_free(ent->bitmap);
 
 				/* free allocated clusters */
 				g_tree_foreach(ent->u.ram.buf_map,

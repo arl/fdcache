@@ -41,7 +41,7 @@ size_t bitmap_numbits(bitmap_hdl hdl)
 	return 0;
 }
 
-void bitmap_dealloc(bitmap_hdl hdl)
+void bitmap_free(bitmap_hdl hdl)
 {
 	bitmap_t *bm = (bitmap_t*) hdl;
 	if (bm) {
@@ -95,7 +95,7 @@ void bitmap_copy(bitmap_hdl dst, const bitmap_hdl src, size_t nbits)
 	memcpy(dstbm->bits, srcbm->bits, len);
 }
 
-void bitmap_resize(bitmap_hdl hdl, size_t nbits)
+void bitmap_realloc(bitmap_hdl hdl, size_t nbits)
 {
 	bitmap_t *bm = (bitmap_t*) hdl;
 	size_t oldnbytes = BITS_TO_LONGS(bm->nbits) * sizeof(unsigned long);

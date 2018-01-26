@@ -7,7 +7,7 @@
 void randomize_bits(bitmap_hdl hdl);
 size_t min(size_t a, size_t b) { return a < b ? a : b; }
 
-void test_bitmap_creation_deletion()
+void test_bitmap_alloc_free()
 {
 	bitmap_hdl bm;
 	size_t nbits;
@@ -29,12 +29,12 @@ void test_bitmap_creation_deletion()
 	nbits = 0;
 	bm = bitmap_alloc(nbits);
 	CU_ASSERT_PTR_NULL_FATAL(bm);
-	bitmap_dealloc(bm);
+	bitmap_free(bm);
 
 	for (tidx = 0; tidx < sizeof(tt) / sizeof(tt[0]); ++tidx) {
 		bm = bitmap_alloc(tt[tidx].nbits);
 		CU_ASSERT_PTR_NOT_NULL_FATAL(bm);
-		bitmap_dealloc(bm);
+		bitmap_free(bm);
 	}
 }
 
@@ -65,7 +65,7 @@ void test_bitmap_get_set()
 			bitmap_reset(bm, i);
 			CU_ASSERT_FALSE_FATAL(bitmap_get(bm, i));
 		}
-		bitmap_dealloc(bm);
+		bitmap_free(bm);
 	}
 }
 
@@ -109,11 +109,11 @@ void test_bitmap_zero_fill()
 		CU_ASSERT_TRUE_FATAL(bitmap_get(bm, tt[tidx].nbits - 1));
 		CU_ASSERT_TRUE_FATAL(bitmap_get(bm, tt[tidx].nbits / 2));
 
-		bitmap_dealloc(bm);
+		bitmap_free(bm);
 	}
 }
 
-void test_bitmap_resize()
+void test_bitmap_realloc()
 {
 	bitmap_hdl bm, tmp;
 	size_t tidx, i;
@@ -140,14 +140,14 @@ void test_bitmap_resize()
 		tmp = bitmap_alloc(tt[tidx].oldnbits);
 		bitmap_copy(tmp, bm, tt[tidx].oldnbits);
 
-		bitmap_resize(bm, tt[tidx].newnbits);
+		bitmap_realloc(bm, tt[tidx].newnbits);
 
 		size_t minbits = min(tt[tidx].oldnbits, tt[tidx].newnbits);
 		for (i = 0; i < minbits; ++i)
 			CU_ASSERT_EQUAL(bitmap_get(bm, i), bitmap_get(tmp, i));
 
-		bitmap_dealloc(bm);
-		bitmap_dealloc(tmp);
+		bitmap_free(bm);
+		bitmap_free(tmp);
 	}
 }
 
@@ -193,8 +193,8 @@ void test_bitmap_copy()
 		for (i = 0; i < tt[tidx].nbits; ++i)
 			CU_ASSERT_EQUAL(bitmap_get(srcbm, i), bitmap_get(dstbm, i));
 
-		bitmap_dealloc(srcbm);
-		bitmap_dealloc(dstbm);
+		bitmap_free(srcbm);
+		bitmap_free(dstbm);
 	}
 }
 
@@ -238,9 +238,9 @@ int main()
 		return CU_get_error();
 	}
 
-	if ((NULL == CU_add_test(pSuite, "bitmap creation/deletion", test_bitmap_creation_deletion)) ||
+	if ((NULL == CU_add_test(pSuite, "bitmap alloc/free", test_bitmap_alloc_free)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap get/set", test_bitmap_get_set)) ||
-	    (NULL == CU_add_test(pSuite, "bitmap resize", test_bitmap_resize)) ||
+	    (NULL == CU_add_test(pSuite, "bitmap realloc", test_bitmap_realloc)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap copy", test_bitmap_copy)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap zero/fill", test_bitmap_zero_fill))) {
 		CU_cleanup_registry();
