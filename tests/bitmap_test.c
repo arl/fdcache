@@ -250,6 +250,49 @@ void test_bitmap_set_range()
 	}
 }
 
+void test_bitmap_get_range()
+{
+	bitmap_hdl bm;
+	size_t tidx;
+
+	typedef struct test_table_ {
+		size_t nbits;	/* bitmap length*/
+		size_t pos;	/* range start */
+		int len;	/* range length */
+	} test_table;
+
+	test_table tt[]= {
+		{ .nbits = 63},
+		{ .nbits = 64},
+		{ .nbits = 65},
+		{ .nbits = 127},
+		{ .nbits = 128},
+		{ .nbits = 129},
+		{ .nbits = 1023},
+		{ .nbits = 1024},
+		{ .nbits = 1025},
+	};
+
+	for (tidx = 0; tidx < sizeof(tt) / sizeof(tt[0]); ++tidx) {
+		test_table *t = &tt[tidx];
+
+		bm = bitmap_alloc(t->nbits);
+		bitmap_fill(bm);
+
+		CU_ASSERT_EQUAL_FATAL(true, bitmap_get_range(bm, 0, t->nbits - 1));
+
+		bitmap_reset(bm, 0);
+		CU_ASSERT_EQUAL_FATAL(false, bitmap_get_range(bm, 0, t->nbits - 1));
+		CU_ASSERT_EQUAL_FATAL(true, bitmap_get_range(bm, 1, t->nbits - 2));
+
+		bitmap_reset(bm, t->nbits - 1);
+		CU_ASSERT_EQUAL_FATAL(false, bitmap_get_range(bm, 0, t->nbits - 1));
+		CU_ASSERT_EQUAL_FATAL(true, bitmap_get_range(bm, 1, t->nbits - 3));
+
+		bitmap_free(bm);
+	}
+}
+
 void test_bitmap_reset_range()
 {
 	bitmap_hdl bm;
@@ -405,6 +448,7 @@ int main()
 	    (NULL == CU_add_test(pSuite, "bitmap realloc", test_bitmap_realloc)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap copy", test_bitmap_copy)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap range set", test_bitmap_set_range)) ||
+	    (NULL == CU_add_test(pSuite, "bitmap range get", test_bitmap_get_range)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap range reset", test_bitmap_reset_range)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap zero/fill", test_bitmap_zero_fill)) ||
 	    (NULL == CU_add_test(pSuite, "bitmap count set bits", test_bitmap_count_setbits))) {
