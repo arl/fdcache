@@ -96,6 +96,7 @@ void test_fdcache_read_write_ram()
 
 		fdc_deinit();
 	}
+
 	CU_LEAK_CHECK_END;
 }
 
@@ -125,6 +126,7 @@ void test_fdcache_get_or_create_return_codes()
 	CU_ASSERT_RC_EQUAL(-ENFILE, fdc_get_or_create, i, 1, 1, &ice1);
 
 	fdc_deinit();
+
 	CU_LEAK_CHECK_END;
 }
 
@@ -157,6 +159,7 @@ void test_fdcache_ram_cluster_write_return_codes()
 	CU_ASSERT_EQUAL(-EOVERFLOW, _fdc_ram_cluster_write(ice1, 0, refbuf, 3, 2, unique_cluster));
 
 	fdc_deinit();
+
 	CU_LEAK_CHECK_END;
 }
 
@@ -198,7 +201,9 @@ void test_fdcache_read_return_codes()
 	/* trying to read unallocated clusters */
 	CU_ASSERT_RC_EQUAL(-EFAULT, fdc_read, ice1, buf, 1, 4);
 	CU_ASSERT_RC_EQUAL(-EFAULT, fdc_read, ice1, buf, 1, 8);
+
 	fdc_deinit();
+
 	CU_LEAK_CHECK_END;
 }
 
