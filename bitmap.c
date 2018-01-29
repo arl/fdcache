@@ -124,8 +124,8 @@ void bitmap_reset_range(bitmap_hdl hdl, size_t pos, int len)
 
 bool bitmap_get(bitmap_hdl hdl, size_t pos)
 {
-	bitmap_t *bm = (bitmap_t *) hdl;
-	unsigned long *p = ((unsigned long *) bm->bits) + BIT_WORD(pos);
+	const bitmap_t *bm = (const bitmap_t *) hdl;
+	const unsigned long *p = ((const unsigned long *) bm->bits) + BIT_WORD(pos);
 	return (*p & BIT_MASK(pos)) != 0;
 }
 
@@ -143,8 +143,8 @@ bool bitmap_get_range(bitmap_hdl hdl, size_t pos, int len)
 
 size_t bitmap_count_setbits(bitmap_hdl hdl)
 {
-	bitmap_t *bm = (bitmap_t *) hdl;
-	unsigned long *p = bm->bits;
+	const bitmap_t *bm = (const bitmap_t *) hdl;
+	const unsigned long *p = bm->bits;
 	ssize_t nremain = bm->nbits;
 	size_t nsetbits = 0;
 
