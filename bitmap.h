@@ -28,6 +28,10 @@ void bitmap_set(bitmap_hdl hdl, size_t pos);
 /* set a specific range */
 void bitmap_set_range(bitmap_hdl hdl, size_t pos, int len);
 
+/* get a specific range (true if all bits in the range are set, false
+ * otherwise) */
+bool bitmap_get_range(bitmap_hdl hdl, size_t pos, int len);
+
 /* reset a specific bit */
 void bitmap_reset(bitmap_hdl hdl, size_t pos);
 

@@ -1,4 +1,4 @@
-#include <stdint.h>
+﻿#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <asm/types.h>
@@ -127,6 +127,18 @@ bool bitmap_get(bitmap_hdl hdl, size_t pos)
 	bitmap_t *bm = (bitmap_t *) hdl;
 	unsigned long *p = ((unsigned long *) bm->bits) + BIT_WORD(pos);
 	return (*p & BIT_MASK(pos)) != 0;
+}
+
+bool bitmap_get_range(bitmap_hdl hdl, size_t pos, int len)
+{
+	const bitmap_t *bm = (const bitmap_t *) hdl;
+	bool result = true;
+	size_t cur;
+	for (cur = 0; result && (cur < len); ++cur) {
+		const unsigned long *p = ((const unsigned long *) bm->bits) + BIT_WORD(pos + cur);
+		result &= ((*p & BIT_MASK(pos)) != 0);
+	}
+	return result;
 }
 
 size_t bitmap_count_setbits(bitmap_hdl hdl)
