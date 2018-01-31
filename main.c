@@ -1,7 +1,6 @@
 #include <jemalloc/jemalloc.h>
 #include <assert.h>
 #include "fdcache.h"
-#include "bitmap.h"
 
 int main()
 {

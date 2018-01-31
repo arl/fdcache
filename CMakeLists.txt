@@ -5,11 +5,8 @@ add_executable(${PROJECT_NAME}
     "fdcache_internal.h"
     "fdcache.h"
     "fdcache.c"
-    "roaring.h"
-    "roaring.c"
     "main.c"
 )
-
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
@@ -25,5 +22,8 @@ if(JEMALLOC_FOUND)
    include_directories(${JEMALLOC_INCLUDE_DIR})
    target_link_libraries(${PROJECT_NAME} ${JEMALLOC_LIBRARY})
 endif(JEMALLOC_FOUND)
+
+include_directories(${JEMALLOC_INCLUDE_DIR})
+target_link_libraries(${PROJECT_NAME} roaring)
 
 add_subdirectory(tests)

@@ -40,8 +40,9 @@ void fdc_deinit()
 		fd_cache_entry_t *ent = &_fd_cache[i];
 		if (ent->ino != FREE_INODE) {
 			if (ent->location == IN_RAM_CACHE) {
-				if (ent->bitmap)
-					bitmap_free(ent->bitmap);
+				if (ent->bitmap) 
+					roaring_bitmap_free(ent->bitmap);
+				ent->bitmap = NULL;
 
 				/* free allocated clusters */
 				g_tree_foreach(ent->u.ram.buf_map,
@@ -102,7 +103,7 @@ int fdc_get_or_create(
 	ent->block_size = block_size;
 	ent->blocks_per_cluster = blocks_per_cluster;
 	ent->u.ram.buf_map = g_tree_new (_key_cmp);
-	ent->bitmap = 0; /* bitmap will be allocated at first write */
+	ent->bitmap = roaring_bitmap_create();
 
 	*fd = (fd_cache_t) ent;
 	return 0;
@@ -197,12 +198,6 @@ ssize_t fdc_write(fd_cache_t fd,
 	const size_t last_offset = offset + count;
 	ssize_t rc;
 	size_t nwritten = 0;
-
-	/* if it's the first write, we must allocate the bitmap */
-	if (!ent->bitmap) {
-		ent->bitmap = bitmap_alloc(DIV_ROUND_UP(last_offset, ent->block_size));
-		bitmap_zero(ent->bitmap);
-	}
 
 	if (ent->location == IN_RAM_CACHE) {
 		/* compute indices of first and last clusters to write to */

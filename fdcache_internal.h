@@ -2,7 +2,8 @@
 #define FDCACHE_INTERNAL_H
 
 #include <glib.h>
-#include "bitmap.h"
+#include <stdbool.h>
+#include <roaring/roaring.h>
 #include "fdcache.h"
 
 /* for now this is quick and very dirty cache
@@ -18,7 +19,7 @@ typedef struct fd_cache_entry_ {
 	size_t total_size;
 	size_t block_size;
 	size_t blocks_per_cluster;
-	bitmap_hdl bitmap;
+	roaring_bitmap_t *bitmap;
 	size_t location;		/* RAM or filesystem */
 	union {
 		struct {
