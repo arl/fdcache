@@ -29,13 +29,7 @@ void fdc_deinit();
  * @brief fdc_get_or_create create a new cache entry associated with the client
  *                        id `ino` or retrieve the entry if it already exists.
  * @param ino [IN] client inode number
- * @param block_size [IN] size of block, should be set to the size of the
- *                        buffers used to write data to the fd cache. (prefered
- *                        write size)
- * @param blocks_per_cluster [IN] number of blocks per cluster, should be set so
- *                        that the size of one cluster corresponds to the size
- *                        of buffers used to read data from the fd cache.
- *                        (prefered read size)
+ * @param page_size [IN]  page size in bytes
  * @param fd [OUT] on success, the value pointed to by fd will be set to the
  *                        opaque fd_cache pointer, used afterwards to read/write
  *                        to the fd cache. On error, its value is undefined
@@ -44,8 +38,7 @@ void fdc_deinit();
  *	* -ENFILE if the maximum number of cache entries has been reached.
  */
 int fdc_get_or_create(cache_ino_t ino,
-		      size_t block_size,
-		      size_t blocks_per_cluster,
+		      size_t page_size,
 		      fd_cache_t *fd);
 
 /**
@@ -69,21 +62,21 @@ int fdc_entry_mem(cache_ino_t ino, size_t *nbytes);
 /**
  * @brief fdc_write writes up to count bytes from the buffer starting at
  *                         buf to the cache entry fd, at offset offset. Required
- *                         number of clusters will be allocated.
+ *                         number of pages will be allocated.
  * @param fd cache entry opaque pointer
  * @param buf buffer to write
  * @param count number of bytes to write.
  * @param off offset from the cache entry start
  * @return the number of bytes written or a negative errno value to indicate an
  *                         error. Possible error codes:
- *	* -ENOMEM cluster can't be allocated
+ *	* -ENOMEM page can't be allocated
  *      * -EINVAL negative offset
  */
 ssize_t fdc_write(fd_cache_t fd,
 		  const void *buf,
 		  size_t count,
 		  off_t offset,
-		  ssize_t *full_cluster);
+		  ssize_t *full_page);
 
 /**
  * @brief fdc_read reads up to count bytes from the cache entry fd, at offset
