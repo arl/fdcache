@@ -5,8 +5,8 @@ add_executable(${PROJECT_NAME}
     "fdcache_internal.h"
     "fdcache.h"
     "fdcache.c"
-    "bitmap.h"
-    "bitmap.c"
+    "roaring.h"
+    "roaring.c"
     "main.c"
 )
 
