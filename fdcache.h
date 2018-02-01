@@ -72,12 +72,15 @@ int fdc_entry_mem(cache_ino_t ino, size_t *nbytes);
  *                         number of clusters will be allocated.
  * @param fd cache entry opaque pointer
  * @param buf buffer to write
- * @param count number of bytes to write.
- * @param off offset from the cache entry start
+ * @param count number of bytes to write. Must be a multiple of the block size.
+ * @param off offset from the cache entry start. Must be a multiple of the block
+ *                         size.
  * @return the number of bytes written or a negative errno value to indicate an
  *                         error. Possible error codes:
  *	* -ENOMEM cluster can't be allocated
  *      * -EINVAL negative offset
+ *      * -ESPIPE write operation is not aligned with the buffer size (count
+ *                and/or offset) is not a multiple of the block size.
  */
 ssize_t fdc_write(fd_cache_t fd,
 		  const void *buf,

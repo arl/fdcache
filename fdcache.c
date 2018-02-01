@@ -130,15 +130,9 @@ int fdc_entry_mem(cache_ino_t ino, size_t *nbytes)
 		return -EFAULT;
 
 	if (ent->location == IN_RAM_CACHE) {
-		const size_t cluster_size = ent->block_size * ent->blocks_per_cluster;
-		if (ent->total_size <= cluster_size) {
-			/* special case, entry holds on a single cluster */
-			*nbytes = ent->total_size;
-		} else {
-			/* count the number of allocated clusters */
-			size_t nclusters = g_tree_nnodes(ent->u.ram.buf_map);
-			*nbytes = nclusters * ent->block_size * ent->blocks_per_cluster;
-		}
+		/* count the number of allocated clusters */
+		size_t nclusters = g_tree_nnodes(ent->u.ram.buf_map);
+		*nbytes = nclusters * ent->block_size * ent->blocks_per_cluster;
 	} else {
 		/* Not implemented ! */
 		assert(0);
@@ -147,42 +141,23 @@ int fdc_entry_mem(cache_ino_t ino, size_t *nbytes)
 	return 0;
 }
 
-ssize_t _fdc_ram_cluster_write(fd_cache_entry_t *ent,
+int _fdc_ram_write_block(fd_cache_entry_t *ent,
 			       size_t cidx,
-			       const void *buf,
-			       size_t count,
-			       off_t coff,
-			       bool unique_cluster)
+			       size_t bidx,
+			       const void *buf)
 {
 	const size_t cluster_size = ent->block_size * ent->blocks_per_cluster;
-	const size_t last_coff = count + coff;
-	if (coff < 0 || coff > cluster_size)
-		return -EINVAL;
-	if (count + coff > cluster_size)
-		return -EOVERFLOW;
 
-	/* retrieve the memory region corresponding to the cluster */
+	/* retrieve or allocate the cluster  */
 	void *cbuf = g_tree_lookup(ent->u.ram.buf_map, (gpointer*) cidx);
 	if (cbuf == NULL) {
-		/* allocate the cluster memory. If the entry is made of a single
-		 * cluster, we just allocate the required memory, and not the
-		 * whole cluster */
-		cbuf = malloc(unique_cluster ? last_coff : cluster_size);
+		cbuf = malloc(cluster_size);
 		if (!cbuf)
 			return -ENOMEM;
 		g_tree_insert(ent->u.ram.buf_map, (gpointer*) cidx, cbuf);
 	}
-	if (unique_cluster && last_coff > ent->total_size) {
-		/* in case of single cluster entry, we may need to realloc if
-		 * not enough memory was allocated in previous writes */
-		void *newcbuf = realloc(cbuf, last_coff);
-		if (newcbuf != cbuf) {
-			/* memory was moved, update the buffer tree */
-			g_tree_insert(ent->u.ram.buf_map, (gpointer*) cidx, newcbuf);
-		}
-	}
-	memcpy(cbuf + coff, buf, count);
-	return count;
+	memcpy(cbuf + bidx * ent->block_size, buf, ent->block_size);
+	return 0;
 }
 
 ssize_t fdc_write(fd_cache_t fd,
@@ -198,6 +173,12 @@ ssize_t fdc_write(fd_cache_t fd,
 	ssize_t rc;
 	size_t nwritten = 0;
 
+	/* check the buffer is block-size aligned */
+	if ((offset % ent->block_size) || (count % ent->block_size)) {
+		/* illegal seek */
+		return -ESPIPE;
+	}
+
 	/* if it's the first write, we must allocate the bitmap */
 	if (!ent->bitmap) {
 		ent->bitmap = bitmap_alloc(DIV_ROUND_UP(last_offset, ent->block_size));
@@ -205,40 +186,25 @@ ssize_t fdc_write(fd_cache_t fd,
 	}
 
 	if (ent->location == IN_RAM_CACHE) {
-		/* compute indices of first and last clusters to write to */
-		size_t cidx = offset / cluster_size;
-		const size_t last_cidx = last_offset / cluster_size;
+		size_t curoff = (size_t) offset;
+		size_t cidx, bidx;
+		while (curoff < offset + count) {
 
-		/* compute offset for first cluster to write to */
-		off_t coff = offset % cluster_size;
+			cidx = curoff / cluster_size;
+			bidx = (curoff % cluster_size) / ent->block_size;
 
-		/* number of bytes remaining to be written */
-		size_t nremain = count;
-		size_t ccount; /* number of bytes to write to current cluster */
+			printf("_fdc_ram_write_block: cidx=%lu bidx=%lu\n", cidx, bidx);
 
-		for (; cidx <= last_cidx; ++cidx) {
-
-			/* compute count for current cluster */
-			ccount = cluster_size - coff > nremain ? nremain : cluster_size - coff;
-
-			printf("_fdc_ram_cluster_write: cidx=%lu buf=buf+0x%lu ccount=%lu coff=%lu\n",
-			       cidx, last_offset - nremain, ccount, coff);
-
-			rc = _fdc_ram_cluster_write(ent, cidx, buf + (count - nremain), ccount, coff, last_cidx == 0);
+			rc = _fdc_ram_write_block(ent, cidx, bidx, buf + nwritten);
 			if (rc < 0)
 				return rc;
-			nwritten += rc;
-
-			/* prepare for writing to next cluster */
-			coff = 0;
-			nremain -= ccount;
-
-			if (nremain == 0)
-				break;
+			curoff += ent->block_size;
+			nwritten += ent->block_size;
 		}
 		/* update total size */
-		if (ent->total_size < last_offset)
-			ent->total_size = last_offset;
+		if (ent->total_size < offset + count)
+			ent->total_size = offset + count;
+
 	} else {
 		/* directly write to filesystem */
 	}
